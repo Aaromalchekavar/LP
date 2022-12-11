@@ -1,22 +1,22 @@
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 // Remove tabs and newlines from a line
 void stripTabspacesAndNewLine(char *line) {
-  int size = strlen(line);
-  for (int i = 0; i < size; i++) {
-      // replace tab with space
-      if (line[i] == '\t') {
-          line[i] = ' ';
-      }
-  }
+    int i = 0;
+    while (line[i] != '\0') {
+        // replace tab with space
+        if (line[i] == '\t') {
+            line[i] = ' ';
+        }
+        i++;
+    }
 
-  // remove new line
-  if (line[size - 1] == '\n') {
-      line[size - 1] = '\0';
-  }
+    // remove new line
+    if (line[i - 1] == '\n') {
+        line[i - 1] = '\0';
+    }
 }
 
 // To get words in a line "COPY START 1000" should give array [COPY,START,1000]
@@ -52,12 +52,34 @@ void writeToFile(char *instructions[], int instructionCount, int address, FILE *
     }
 }
 
+int readOptab(FILE *file, char optab[20][10]) {
+    int i = 0;
+    char line[100];
+    while (fgets(line, 100, file) != NULL) {
+        stripTabspacesAndNewLine(line);
+
+        int j = 0;
+        while (line[j] != ' ') {
+            optab[i][j] = line[j];
+            j++;
+        }
+        optab[i][j] = '\0';
+        i++;
+    }
+
+    return i;
+}
 
 int main() {
-    FILE *inputFile, *outputFile, *symTabOutput ;
+    FILE *inputFile, *outputFile, *symTabOutput, *lengthOutput, *optabInput;
     inputFile = fopen("input.txt", "r");
+    optabInput = fopen("optab.txt", "r");
     symTabOutput = fopen("symtab.txt", "w");
     outputFile = fopen("output.txt", "w");
+    lengthOutput = fopen("length.txt", "w");
+
+    char opcodes[20][10];
+    int opcodeCount = readOptab(optabInput, opcodes);
 
     char line[100];
     int instructionCount;
@@ -74,13 +96,14 @@ int main() {
     // write first line to output file (program name and starting address)
     fprintf(outputFile, "%s %s %s\n", instructions[0], instructions[1], instructions[2]);
 
-    int address = atoi(instructions[2]); // get starting address as integer
+    int startingAddress = atoi(instructions[2]); // convert string to int
+    int address = startingAddress; // get starting address as integer
     while (fgets(line, 100, inputFile)) {
         getInstructions(line, instructions, &instructionCount);
         writeToFile(instructions, instructionCount, address, outputFile);
 
         char *opCode = instructions[0];
-        if (instructionCount == 3) {
+        if (instructionCount > 2) {
             // if instruction is of type "LABEL LDA 1000" (3 words)
             // opcode is at second position
             opCode = instructions[1];
@@ -102,10 +125,17 @@ int main() {
         } else if (strcmp(opCode, "END") == 0) {
             break;
         } else {
-            address += 3;
+            for (int i = 0; i < opcodeCount; i++) {
+                if (strcmp(opCode, opcodes[i]) == 0) {
+                    address += 3;
+                    break;
+                }
+            }
         }
     }
 
-    printf("Completed! symbol table written to symtab.txt and output to output.txt\n");
+    // write length to length.txt
+    fprintf(lengthOutput, "%d", address - startingAddress);
+    printf("Completed! symbol table written to symtab.txt, length to length.txt, and output to output.txt\n");
     return 0;
 }
